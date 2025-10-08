@@ -85,15 +85,15 @@ def filesize_filter(num_bytes):
     return _format_size(num_bytes)
 
 # Determine a writable location for the SQLite database. Allow overrides via
-# the VIBE_DB_PATH environment variable and, by default, place the database in
+# the FILE_SERVER_DB_PATH environment variable and, by default, place the database in
 # a hidden directory within the project root. Relying on the user's home
 # directory caused mismatches when the administrative scripts were executed
 # outside the server's environment, resulting in separate databases and failed
 # logins. Using a path relative to the application keeps both the server and
 # management scripts in sync while still permitting customization via the
 # environment.
-DEFAULT_DB_DIR = Path(__file__).resolve().parent.parent / ".vibe-data"
-DB_PATH = Path(os.environ.get("VIBE_DB_PATH", DEFAULT_DB_DIR / "app.db"))
+DEFAULT_DB_DIR = Path(__file__).resolve().parent.parent / ".mini-data"
+DB_PATH = Path(os.environ.get("FILE_SERVER_DB_PATH", DEFAULT_DB_DIR / "app.db"))
 DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 UPLOAD_ROOT = Path(config.UPLOAD_ROOT)
 ALLOWED_EXTS = config.ALLOWED_EXTS

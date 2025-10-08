@@ -8,8 +8,8 @@ from werkzeug.security import generate_password_hash
 # default, place it in a hidden directory relative to the repository root. This
 # avoids accidental creation of separate databases when the scripts are run
 # outside the container hosting the server.
-DEFAULT_DB_DIR = Path(__file__).resolve().parent.parent / ".vibe-data"
-DB_PATH = Path(os.environ.get("VIBE_DB_PATH", DEFAULT_DB_DIR / "app.db"))
+DEFAULT_DB_DIR = Path(__file__).resolve().parent.parent / ".mini-data"
+DB_PATH = Path(os.environ.get("FILE_SERVER_DB_PATH", DEFAULT_DB_DIR / "app.db"))
 DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 def get_conn(db_path: Union[Path, str] = DB_PATH):

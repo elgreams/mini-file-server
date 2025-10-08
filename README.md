@@ -9,7 +9,7 @@ and per-user storage.
 
 ```bash
 git clone <repo-url>
-cd vibe-file-server
+cd mini-file-server
 ```
 
 ### Quick-start script
@@ -49,18 +49,18 @@ pytest
 
 Use `user_admin.py` to manage accounts in the SQLite database.
 
-The database is stored at `.vibe-data/app.db` within the project directory so
+The database is stored at `.mini-data/app.db` within the project directory so
 command-line tools and the running server share the same file even in different
-environments (e.g., host vs. container). Set the `VIBE_DB_PATH` environment
+environments (e.g., host vs. container). Set the `FILE_SERVER_DB_PATH` environment
 variable to move it elsewhere.
 
-The application server reads the same `VIBE_DB_PATH`. Ensure the variable points
+The application server reads the same `FILE_SERVER_DB_PATH`. Ensure the variable points
 to the **same** path when launching the server and when running
 `user_admin.py`; otherwise the script may write to a different database and the
 server will report "Invalid username or password" at login.
 
 ```bash
-export VIBE_DB_PATH=/opt/vibe-file-server/.vibe-data/app.db
+export FILE_SERVER_DB_PATH=/opt/mini-file-server/.mini-data/app.db
 python app/app.py                # start the server
 python app/user_admin.py list    # manage users in the same database
 ```
@@ -131,8 +131,8 @@ IP. Adjust paths and commands to match your environment.
 1. **Clone and install** on the server:
 
    ```bash
-   git clone <repo-url> /opt/vibe-file-server
-   cd /opt/vibe-file-server
+   git clone <repo-url> /opt/mini-file-server
+   cd /opt/mini-file-server
    python3 -m venv .venv
    . .venv/bin/activate
    pip install -r app/requirements.txt

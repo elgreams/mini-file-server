@@ -5,9 +5,9 @@ from werkzeug.security import generate_password_hash
 # Store the SQLite database alongside the application by default so that
 # administrative scripts run on the host and the server process running inside
 # a container operate on the same file. A custom location may still be provided
-# via the VIBE_DB_PATH environment variable.
-DEFAULT_DB_DIR = Path(__file__).resolve().parent.parent / ".vibe-data"
-DB_PATH = Path(os.environ.get("VIBE_DB_PATH", DEFAULT_DB_DIR / "app.db"))
+# via the FILE_SERVER_DB_PATH environment variable.
+DEFAULT_DB_DIR = Path(__file__).resolve().parent.parent / ".mini-data"
+DB_PATH = Path(os.environ.get("FILE_SERVER_DB_PATH", DEFAULT_DB_DIR / "app.db"))
 DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 conn = sqlite3.connect(str(DB_PATH))
 conn.execute(
