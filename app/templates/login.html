@@ -1,0 +1,56 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8"><title>Login</title>
+    <link rel="icon" href="{{ url_for('favicon') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+  </head>
+  <body>
+    {% with show_nav = False %}
+      {% include "_topbar.html" %}
+    {% endwith %}
+    <h1>Login</h1>
+    <form method="post">
+      <input type="hidden" name="next" value="{{ next }}">
+      <input type="hidden" name="pow_nonce" id="pow_nonce">
+      <label>Username: <input type="text" name="username" autocomplete="username" required></label><br>
+      <label>Password: <input type="password" name="password" autocomplete="current-password" required></label><br>
+      <label><input type="checkbox" id="remember_username"> Remember username</label><br>
+      <button type="submit" id="loginBtn" disabled>Login</button>
+    </form>
+    <script>
+      const form = document.querySelector('form');
+      const usernameInput = document.querySelector('input[name="username"]');
+      const rememberBox = document.getElementById('remember_username');
+      const stored = localStorage.getItem('rememberedUsername');
+      if (stored) {
+        usernameInput.value = stored;
+        rememberBox.checked = true;
+      }
+      form.addEventListener('submit', () => {
+        if (rememberBox.checked) {
+          localStorage.setItem('rememberedUsername', usernameInput.value);
+        } else {
+          localStorage.removeItem('rememberedUsername');
+        }
+      });
+
+      async function solvePow(chal, diff) {
+        let nonce = 0;
+        const enc = new TextEncoder();
+        while (true) {
+          // Use the decimal representation of the nonce so the hash
+          // calculation matches the server's implementation.
+          const data = enc.encode(chal + nonce);
+          const buf = await crypto.subtle.digest('SHA-256', data);
+          const hash = Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+          if (hash.startsWith('0'.repeat(diff))) break;
+          nonce++;
+        }
+        document.getElementById('pow_nonce').value = nonce;
+        document.getElementById('loginBtn').disabled = false;
+      }
+      solvePow('{{ challenge }}', {{ difficulty }});
+    </script>
+  </body>
+</html>

@@ -1,0 +1,306 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8"><title>Dashboard</title>
+    <link rel="icon" href="{{ url_for('favicon') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+  </head>
+  <body>
+    {% include "_topbar.html" %}
+    <h1>Hi, {{ username }}.</h1>
+
+    {% if can_upload %}
+    <h2>Upload</h2>
+      <form id="upload-form" method="post" action="{{ url_for('upload') }}" data-upload-init="{{ url_for('upload_init') }}" data-upload-chunk="{{ url_for('upload_chunk') }}" enctype="multipart/form-data">
+        <input type="file" name="file" required>
+        <button type="submit">Upload</button>
+      <div id="upload-bar" style="display:none"><progress id="upload-progress" value="0" max="100"></progress></div>
+      <div id="upload-speed" aria-live="polite"></div>
+      <div id="upload-status"></div>
+    </form>
+    {% else %}
+    <p><em>Uploads are disabled for your account.</em></p>
+    {% endif %}
+
+    <h2>Your Files</h2>
+    {% if files %}
+      <ul class="file-list">
+        {% for f in files %}
+          <li>
+            <span class="file-details">
+              <a href="{{ url_for('file_info', token=f.token) }}">{{ f.name }}</a>
+              — {{ f.size|filesize }}
+            </span>
+            <form method="post" action="{{ url_for('set_private', token=f.token) }}" class="file-privacy-form">
+              <input type="hidden" name="private" value="0">
+              <label>
+                <input type="checkbox" name="private" value="1" onchange="this.form.submit()" {% if not f.is_public %}checked{% endif %}> private
+              </label>
+            </form>
+            <form method="post" action="{{ url_for('delete_file', token=f.token) }}" class="file-delete-form">
+              <button type="submit" class="delete-button" aria-label="Delete {{ f.name }}">
+                <span aria-hidden="true">🗑</span>
+              </button>
+              <span class="delete-confirm-text" aria-live="polite"></span>
+            </form>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p>No files yet.</p>
+    {% endif %}
+
+    <script>
+      (function() {
+        const form = document.getElementById('upload-form');
+        if (!form) return;
+        const bar = document.getElementById('upload-bar');
+        const progress = document.getElementById('upload-progress');
+        const status = document.getElementById('upload-status');
+        const speedDisplay = document.getElementById('upload-speed');
+        const fileInput = form.querySelector('input[type="file"]');
+        let uploadInProgress = false;
+        const beforeUnloadMessage = 'An upload is in progress. Leaving this page will cancel it.';
+        const handleBeforeUnload = (event) => {
+          if (!uploadInProgress) return;
+          event.preventDefault();
+          event.returnValue = beforeUnloadMessage;
+          return beforeUnloadMessage;
+        };
+        const setUploadInProgress = (state) => {
+          uploadInProgress = !!state;
+          if (uploadInProgress) {
+            window.addEventListener('beforeunload', handleBeforeUnload);
+          } else {
+            window.removeEventListener('beforeunload', handleBeforeUnload);
+          }
+        };
+        const formatSpeed = (bytesPerSecond) => {
+          if (!Number.isFinite(bytesPerSecond) || bytesPerSecond <= 0) {
+            return '0 B/s';
+          }
+          const units = ['B/s', 'KB/s', 'MB/s', 'GB/s', 'TB/s'];
+          let speed = bytesPerSecond;
+          let unitIndex = 0;
+          while (speed >= 1024 && unitIndex < units.length - 1) {
+            speed /= 1024;
+            unitIndex += 1;
+          }
+          const precision = speed >= 100 ? 0 : speed >= 10 ? 1 : 2;
+          return `${speed.toFixed(precision)} ${units[unitIndex]}`;
+        };
+        const setSpeedDisplay = (text) => {
+          if (!speedDisplay) return;
+          speedDisplay.textContent = text || '';
+        };
+        document.addEventListener('dragover', function(ev) { ev.preventDefault(); });
+        document.addEventListener('drop', function(ev) {
+          ev.preventDefault();
+          if (ev.dataTransfer.files && ev.dataTransfer.files.length) {
+            fileInput.files = ev.dataTransfer.files;
+          }
+        });
+        form.addEventListener('submit', async function(e) {
+          e.preventDefault();
+          status.textContent = '';
+          setSpeedDisplay('');
+          progress.value = 0;
+          progress.max = 100;
+          bar.style.display = 'block';
+          const submitBtn = form.querySelector('button[type="submit"]');
+          if (submitBtn) submitBtn.disabled = true;
+          const file = fileInput.files && fileInput.files[0];
+          if (!file) {
+            status.textContent = 'Select a file to upload';
+            bar.style.display = 'none';
+            if (submitBtn) submitBtn.disabled = false;
+            return;
+          }
+
+          setUploadInProgress(true);
+
+          const requestedChunkSize = Math.max(1, Math.min(4 * 1024 * 1024, file.size || 1));
+          const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+          const uploadStartedAt = performance.now();
+          const updateSpeed = (uploadedBytes) => {
+            if (!speedDisplay) return;
+            const elapsedSeconds = (performance.now() - uploadStartedAt) / 1000;
+            if (!Number.isFinite(elapsedSeconds) || elapsedSeconds <= 0 || !Number.isFinite(uploadedBytes) || uploadedBytes <= 0) {
+              setSpeedDisplay('Upload speed: calculating…');
+              return;
+            }
+            setSpeedDisplay(`Upload speed: ${formatSpeed(uploadedBytes / elapsedSeconds)}`);
+          };
+
+          try {
+            const initResp = await fetch(form.dataset.uploadInit, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+              },
+              body: JSON.stringify({
+                name: file.name,
+                size: file.size,
+                chunk_size: requestedChunkSize
+              })
+            });
+
+            const initData = await initResp.json().catch(() => ({}));
+            if (!initResp.ok || !initData.ok) {
+              throw new Error(initData.error || 'Upload failed');
+            }
+
+            if (initData.complete) {
+              setUploadInProgress(false);
+              location.reload();
+              return;
+            }
+
+            let offset = 0;
+            let token = initData.token;
+            const chunkSize = typeof initData.chunk_size === 'number' && initData.chunk_size > 0
+              ? initData.chunk_size
+              : requestedChunkSize;
+            if (!token) {
+              throw new Error('Upload session not created');
+            }
+
+            let completed = false;
+            setSpeedDisplay('Upload speed: calculating…');
+
+            while (offset < file.size) {
+              const chunk = file.slice(offset, Math.min(offset + chunkSize, file.size));
+              let attempts = 0;
+              while (true) {
+                try {
+                  const formData = new FormData();
+                  formData.append('token', token);
+                  formData.append('offset', offset);
+                  formData.append('chunk', chunk);
+                  const resp = await fetch(form.dataset.uploadChunk, {
+                    method: 'POST',
+                    headers: {
+                      'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    body: formData
+                  });
+
+                  const data = await resp.json().catch(() => ({}));
+                  if (resp.status === 409 && typeof data.expected === 'number') {
+                    offset = data.expected;
+                    progress.value = file.size ? Math.min(100, (offset / file.size) * 100) : 100;
+                    updateSpeed(offset);
+                    if (data.complete || offset >= file.size) {
+                      completed = true;
+                    }
+                    break;
+                  }
+
+                  if (!resp.ok || !data.ok) {
+                    throw new Error(data.error || 'Upload failed');
+                  }
+
+                  offset = typeof data.uploaded === 'number' ? data.uploaded : offset + chunk.size;
+                  progress.value = file.size ? Math.min(100, (offset / file.size) * 100) : 100;
+                  updateSpeed(offset);
+
+                  if (data.complete) {
+                    completed = true;
+                    setUploadInProgress(false);
+                    location.reload();
+                    return;
+                  }
+                  break;
+                } catch (err) {
+                  attempts += 1;
+                  if (attempts >= 5) {
+                    throw err;
+                  }
+                  status.textContent = 'Retrying upload…';
+                  setSpeedDisplay('Upload speed: waiting…');
+                  await sleep(attempts * 1000);
+                }
+              }
+            }
+
+            if (completed || offset >= file.size) {
+              setUploadInProgress(false);
+              location.reload();
+              return;
+            }
+
+            status.textContent = 'Finalizing upload…';
+          } catch (error) {
+            setUploadInProgress(false);
+            bar.style.display = 'none';
+            status.textContent = error && error.message ? error.message : 'Upload failed';
+            setSpeedDisplay('');
+            if (submitBtn) submitBtn.disabled = false;
+            return;
+          }
+
+          setUploadInProgress(false);
+          setSpeedDisplay('');
+          if (submitBtn) submitBtn.disabled = false;
+        });
+      })();
+
+      (function() {
+        const forms = document.querySelectorAll('.file-delete-form');
+        forms.forEach((form) => {
+          const button = form.querySelector('.delete-button');
+          const confirmText = form.querySelector('.delete-confirm-text');
+          if (!button || !confirmText) return;
+
+          let outsideClickListenerAttached = false;
+          const handleOutsidePointerDown = (event) => {
+            if (event.target === button || button.contains(event.target)) {
+              return;
+            }
+            resetConfirmation();
+          };
+          const detachOutsideClickListener = () => {
+            if (!outsideClickListenerAttached) {
+              return;
+            }
+            document.removeEventListener('pointerdown', handleOutsidePointerDown);
+            outsideClickListenerAttached = false;
+          };
+          const attachOutsideClickListener = () => {
+            if (outsideClickListenerAttached) {
+              return;
+            }
+            document.addEventListener('pointerdown', handleOutsidePointerDown);
+            outsideClickListenerAttached = true;
+          };
+          const resetConfirmation = () => {
+            detachOutsideClickListener();
+            delete button.dataset.confirmed;
+            confirmText.textContent = '';
+          };
+
+          button.addEventListener('click', (event) => {
+            if (button.dataset.confirmed === 'true') {
+              resetConfirmation();
+              return;
+            }
+
+            event.preventDefault();
+            button.dataset.confirmed = 'true';
+            confirmText.textContent = 'Click again to confirm deletion';
+            attachOutsideClickListener();
+          });
+
+          button.addEventListener('blur', resetConfirmation);
+          button.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') {
+              event.preventDefault();
+              resetConfirmation();
+            }
+          });
+        });
+      })();
+    </script>
+  </body>
+</html>

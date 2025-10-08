@@ -1,0 +1,26 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8"><title>{{ file.stored_name }}</title>
+    <link rel="icon" href="{{ url_for('favicon') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+  </head>
+  <body>
+    {% include "_topbar.html" %}
+    <h1>{{ file.original_name }}</h1>
+    <div class="file-info">
+      <ul>
+        <li>Uploaded: {{ file.uploaded_str }}</li>
+        <li>File size: {{ file.size|filesize }}</li>
+        <li>Views: {{ file.views }}</li>
+        <li>Downloads: {{ file.downloads }}</li>
+        {% if file.sha1_pending %}
+        <li>SHA-1: calculating… <small>(refresh in a moment)</small></li>
+        {% else %}
+        <li>SHA-1: {{ file.sha1 }}</li>
+        {% endif %}
+        <li><a href="{{ url_for('download', token=file.token) }}">Download</a></li>
+      </ul>
+    </div>
+  </body>
+</html>
