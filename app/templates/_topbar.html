@@ -1,0 +1,19 @@
+<header class="site-header">
+  <div class="site-header__inner">
+    <p class="site-brand" aria-label="Site name">{{ site_domain }}</p>
+    {% if site_tagline %}
+    <p class="site-tagline">{{ site_tagline }}</p>
+    {% endif %}
+    {% if show_nav is not defined or show_nav %}
+    <nav class="site-nav" aria-label="Primary">
+      <a href="{{ url_for('dashboard') }}">Dashboard</a>
+      <span class="site-nav__divider" aria-hidden="true">|</span>
+      <a href="{{ url_for('public_index') }}">Public</a>
+      {% if is_authenticated %}
+      <span class="site-nav__divider" aria-hidden="true">|</span>
+      <a href="{{ url_for('logout') }}">Logout</a>
+      {% endif %}
+    </nav>
+    {% endif %}
+  </div>
+</header>

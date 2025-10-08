@@ -1,0 +1,13 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8"><title>Home</title>
+    <link rel="icon" href="{{ url_for('favicon') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+  </head>
+  <body>
+    {% include "_topbar.html" %}
+    <script>location.href="/login";</script>
+    <noscript><a href="/login">Go to login</a></noscript>
+  </body>
+</html>

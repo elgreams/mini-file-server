@@ -1,0 +1,15 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8"><title>Message</title>
+    <link rel="icon" href="{{ url_for('favicon') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+  </head>
+  <body>
+    {% include "_topbar.html" %}
+    <p>{{ message }}</p>
+    {% if back %}
+    <p><a href="{{ back }}">Go back</a></p>
+    {% endif %}
+  </body>
+</html>
